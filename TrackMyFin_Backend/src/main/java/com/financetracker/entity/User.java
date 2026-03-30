@@ -49,6 +49,10 @@ public class User implements UserDetails {
     private String bio;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "currency", nullable = false)
+    private Currency currency = Currency.USD;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role = Role.USER;
 

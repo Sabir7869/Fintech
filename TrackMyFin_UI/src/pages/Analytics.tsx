@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { useToast } from '../components/ui/Toast';
 import useDocumentTitle from '../hooks/useDocumentTitle';
@@ -30,6 +30,11 @@ import {
   Calendar,
   DollarSign
 } from 'lucide-react';
+
+const CHART_COLORS = [
+  '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
+  '#EC4899', '#14B8A6', '#F97316', '#84CC16', '#6366F1'
+];
 
 interface Transaction {
   id: number;
@@ -79,15 +84,13 @@ interface AnalyticsStats {
 
 const Analytics: React.FC = () => {
   useDocumentTitle('Analytics');
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { 
     transactions: dataTransactions, 
     categories: dataCategories, 
     salaries: dataSalaries 
   } = useData();
   const { isDark } = useTheme();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [expenseByCategory, setExpenseByCategory] = useState<ExpenseByCategory[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
@@ -100,61 +103,9 @@ const Analytics: React.FC = () => {
     expenseCategories: 0
   });
   
-  const { success, error } = useToast();
+  const { error } = useToast();
 
-  // Color palette for charts (compatible with dark/light mode)
-  const CHART_COLORS = [
-    '#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6',
-    '#EC4899', '#14B8A6', '#F97316', '#84CC16', '#6366F1'
-  ];
-
-  useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      loadAnalyticsData();
-    } else if (!authLoading && !isAuthenticated) {
-      setLoading(false);
-    }
-  }, [isAuthenticated, authLoading]);
-
-  // Update local state when DataContext data changes
-  useEffect(() => {
-    if (dataTransactions && dataCategories) {
-      setTransactions(dataTransactions);
-      setCategories(dataCategories);
-      
-      // Reprocess data when transactions or salaries change
-      processExpenseByCategory(dataTransactions, dataCategories);
-      processMonthlyData(dataTransactions, dataSalaries || []);
-      calculateStats(dataTransactions, dataCategories, dataSalaries || []);
-    }
-  }, [dataTransactions, dataCategories, dataSalaries]);
-
-  const loadAnalyticsData = async () => {
-    try {
-      setLoading(true);
-      const [transactionsData, categoriesData, salariesData] = await Promise.all([
-        apiService.getTransactions(),
-        apiService.getCategories(),
-        apiService.getSalaries()
-      ]);
-      
-      setTransactions(transactionsData);
-      setCategories(categoriesData);
-      
-      // Process data for charts
-      processExpenseByCategory(transactionsData, categoriesData);
-      processMonthlyData(transactionsData, salariesData || []);
-      calculateStats(transactionsData, categoriesData, salariesData || []);
-      
-    } catch (err: any) {
-      console.error('Failed to load analytics data:', err);
-      error('Failed to load analytics data', err.message || 'Unknown error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const processExpenseByCategory = (transactions: Transaction[], categories: Category[]) => {
+  const processExpenseByCategory = useCallback((transactions: Transaction[], categories: Category[]) => {
     // Handle both uppercase and lowercase transaction types
     const expenseTransactions = transactions.filter(t => t.type.toUpperCase() === 'EXPENSE');
     const categoryTotals = new Map<string, number>();
@@ -178,16 +129,10 @@ const Analytics: React.FC = () => {
       .sort((a, b) => b.value - a.value);
 
     setExpenseByCategory(expenseData);
-  };
+  }, []);
 
-  const processMonthlyData = (transactions: Transaction[], salaries: Salary[]) => {
+  const processMonthlyData = useCallback((transactions: Transaction[], salaries: Salary[]) => {
     const monthlyTotals = new Map<string, { income: number; expenses: number }>();
-    
-    console.log('📊 Processing monthly data:', { 
-      transactionCount: transactions.length, 
-      salaryCount: salaries.length,
-      transactions: transactions.map(t => ({ type: t.type, amount: t.amount, date: t.date }))
-    });
     
     // Process transactions
     transactions.forEach(transaction => {
@@ -208,13 +153,6 @@ const Analytics: React.FC = () => {
         monthData.income += amount;
       } else if (transactionType === 'EXPENSE') {
         monthData.expenses += amount;
-        console.log('💰 Adding expense:', { 
-          originalType: transaction.type, 
-          normalizedType: transactionType, 
-          amount, 
-          monthKey, 
-          newTotal: monthData.expenses 
-        });
       }
     });
 
@@ -232,32 +170,26 @@ const Analytics: React.FC = () => {
       monthData.income += amount; // Add salary to income
     });
 
-    console.log('📈 Monthly totals before array conversion:', Array.from(monthlyTotals.entries()));
-
     const monthlyDataArray: MonthlyData[] = Array.from(monthlyTotals.entries())
       .map(([monthKey, data]) => {
         const [year, month] = monthKey.split('-');
         const date = new Date(parseInt(year), parseInt(month) - 1, 1);
         const monthName = date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
         
-        const result = {
+        return {
           month: monthName,
           income: data.income,
           expenses: data.expenses,
           net: data.income - data.expenses
         };
-        
-        console.log('📊 Monthly data point:', result);
-        return result;
       })
       .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
       .slice(-12); // Last 12 months
 
-    console.log('📋 Final monthly data array:', monthlyDataArray);
     setMonthlyData(monthlyDataArray);
-  };
+  }, []);
 
-  const calculateStats = (transactions: Transaction[], categories: Category[], salaries: Salary[]) => {
+  const calculateStats = useCallback((transactions: Transaction[], salaries: Salary[]) => {
     // Handle both uppercase and lowercase transaction types
     const transactionIncome = transactions.filter(t => t.type.toUpperCase() === 'INCOME').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const salaryIncome = salaries.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
@@ -265,16 +197,6 @@ const Analytics: React.FC = () => {
     
     const expenses = transactions.filter(t => t.type.toUpperCase() === 'EXPENSE').reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
     const expenseCategories = new Set(transactions.filter(t => t.type.toUpperCase() === 'EXPENSE').map(t => t.categoryId)).size;
-    
-    console.log('📊 Calculating stats:', {
-      transactionIncome,
-      salaryIncome,
-      totalIncome,
-      expenses,
-      expenseTransactions: transactions.filter(t => t.type.toUpperCase() === 'EXPENSE'),
-      monthlyDataLength: monthlyData.length
-    });
-    
     const months = monthlyData.length || 1;
     
     setStats({
@@ -285,7 +207,47 @@ const Analytics: React.FC = () => {
       monthlyAvgExpenses: expenses / months,
       expenseCategories
     });
-  };
+  }, [monthlyData.length]);
+
+  const loadAnalyticsData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [transactionsData, categoriesData, salariesData] = await Promise.all([
+        apiService.getTransactions(),
+        apiService.getCategories(),
+        apiService.getSalaries()
+      ]);
+      
+      // Process data for charts
+      processExpenseByCategory(transactionsData, categoriesData);
+      processMonthlyData(transactionsData, salariesData || []);
+      calculateStats(transactionsData, salariesData || []);
+      
+    } catch (err: any) {
+      console.error('Failed to load analytics data:', err);
+      error('Failed to load analytics data', err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [error, processExpenseByCategory, processMonthlyData, calculateStats]);
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      loadAnalyticsData();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false);
+    }
+  }, [isAuthenticated, authLoading, loadAnalyticsData]);
+
+  // Update local state when DataContext data changes
+  useEffect(() => {
+    if (dataTransactions && dataCategories) {
+      // Reprocess data when transactions or salaries change
+      processExpenseByCategory(dataTransactions, dataCategories);
+      processMonthlyData(dataTransactions, dataSalaries || []);
+      calculateStats(dataTransactions, dataSalaries || []);
+    }
+  }, [dataTransactions, dataCategories, dataSalaries, processExpenseByCategory, processMonthlyData, calculateStats]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {

@@ -5,6 +5,7 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
+  currency: string;
 }
 
 interface AuthContextType {
@@ -12,6 +13,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  currency: string;
+  setCurrency: (currency: string) => void;
   login: (credentials: LoginRequest) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -37,6 +40,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currency, setCurrencyState] = useState<string>(() => {
+    // Initialize from localStorage
+    return localStorage.getItem('userCurrency') || 'USD';
+  });
 
   // Initialize authentication state on app start
   useEffect(() => {
@@ -47,11 +54,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // If we have a valid token, we can extract user info from it
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
+          const userCurrency = localStorage.getItem('userCurrency') || payload.currency || 'USD';
           setUser({
             email: payload.email || payload.sub,
             firstName: payload.firstName || '',
             lastName: payload.lastName || '',
+            currency: userCurrency,
           });
+          setCurrencyState(userCurrency);
           setIsAuthenticated(true);
         } catch {
           // If token is invalid, remove it
@@ -73,12 +83,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     tokenService.setToken(response.token);
     
     // Set user data
+    const userCurrency = response.currency || 'USD';
+    localStorage.setItem('userCurrency', userCurrency);
+    
     const userData: User = {
       email: response.email,
       firstName: response.firstName,
       lastName: response.lastName,
+      currency: userCurrency,
     };
     setUser(userData);
+    setCurrencyState(userCurrency);
     setIsAuthenticated(true);
     setError(null);
   };
@@ -129,8 +144,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     tokenService.removeToken();
+    localStorage.removeItem('userCurrency');
     setUser(null);
     setIsAuthenticated(false);
+    setCurrencyState('USD');
     setError(null);
   };
 
@@ -138,11 +155,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setError(null);
   };
 
+  const setCurrency = (newCurrency: string) => {
+    setCurrencyState(newCurrency);
+    localStorage.setItem('userCurrency', newCurrency);
+    if (user) {
+      setUser({ ...user, currency: newCurrency });
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
     isLoading,
     error,
+    currency,
+    setCurrency,
     login,
     register,
     logout,

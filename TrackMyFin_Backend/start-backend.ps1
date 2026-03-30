@@ -4,43 +4,45 @@
 Write-Host "=== Finance Tracker Backend Startup ===" -ForegroundColor Green
 Write-Host ""
 
-# Set JAVA_HOME if not already set
-if (-not $env:JAVA_HOME) {
-    Write-Host "JAVA_HOME not set. Attempting to locate Java installation..." -ForegroundColor Yellow
-    
-    $javaPaths = @(
+function Test-ValidJavaHome([string]$home) {
+    return -not [string]::IsNullOrWhiteSpace($home) -and (Test-Path (Join-Path $home "bin\java.exe"))
+}
+
+# Normalize and resolve JAVA_HOME
+if ($env:JAVA_HOME -and (Split-Path -Leaf $env:JAVA_HOME).ToLower() -eq "bin") {
+    $env:JAVA_HOME = Split-Path -Parent $env:JAVA_HOME
+}
+
+if (-not (Test-ValidJavaHome $env:JAVA_HOME)) {
+    Write-Host "JAVA_HOME missing/invalid. Attempting to locate Java installation..." -ForegroundColor Yellow
+
+    $preferred = @(
         "C:\Program Files\Java\jdk-21",
         "C:\Program Files\Java\jdk-17",
-        "C:\Program Files\Java\jdk-11",
-        "C:\Program Files\Java\jdk1.8.0_*"
+        "C:\Program Files\Java\jdk-11"
     )
-    
-    $javaFound = $false
-    foreach ($path in $javaPaths) {
-        if ($path -like "*\*") {
-            $expandedPaths = Get-ChildItem "C:\Program Files\Java\" -Directory | Where-Object { $_.Name -like "jdk1.8.0_*" }
-            if ($expandedPaths) {
-                $env:JAVA_HOME = $expandedPaths[0].FullName
-                $javaFound = $true
-                break
-            }
-        } elseif (Test-Path $path) {
+
+    $installed = Get-ChildItem "C:\Program Files\Java\" -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -like "jdk*" } |
+        Sort-Object Name -Descending |
+        Select-Object -ExpandProperty FullName
+
+    foreach ($path in ($preferred + $installed)) {
+        if (Test-ValidJavaHome $path) {
             $env:JAVA_HOME = $path
-            $javaFound = $true
             break
         }
     }
-    
-    if ($javaFound) {
-        Write-Host "Found Java at: $env:JAVA_HOME" -ForegroundColor Green
-    } else {
-        Write-Host "Java installation not found. Please install Java JDK 11 or higher." -ForegroundColor Red
-        Write-Host "Download from: https://adoptium.net/" -ForegroundColor Cyan
-        exit 1
-    }
-} else {
-    Write-Host "Using existing JAVA_HOME: $env:JAVA_HOME" -ForegroundColor Green
 }
+
+if (-not (Test-ValidJavaHome $env:JAVA_HOME)) {
+    Write-Host "Java installation not found. Please install Java JDK 21." -ForegroundColor Red
+    Write-Host "Download from: https://adoptium.net/" -ForegroundColor Cyan
+    exit 1
+}
+
+Write-Host "Using JAVA_HOME: $env:JAVA_HOME" -ForegroundColor Green
+$env:PATH = "$env:JAVA_HOME\bin;$env:PATH"
 
 # Check current directory
 $currentDir = Get-Location
@@ -59,11 +61,16 @@ if (-not (Test-Path "pom.xml")) {
 
 Write-Host "✅ Found pom.xml - in correct backend directory" -ForegroundColor Green
 
-# Check if Maven wrapper exists
-if (Test-Path "mvnw.cmd") {
-    Write-Host "✅ Found Maven wrapper" -ForegroundColor Green
+# Choose Maven command (wrapper first, fallback to installed mvn)
+$mavenCommand = $null
+if (Test-Path ".\mvnw.cmd") {
+    $mavenCommand = ".\mvnw.cmd"
+    Write-Host "Found Maven wrapper" -ForegroundColor Green
+} elseif (Get-Command mvn -ErrorAction SilentlyContinue) {
+    $mavenCommand = "mvn"
+    Write-Host "Using Maven from PATH" -ForegroundColor Green
 } else {
-    Write-Host "❌ Maven wrapper (mvnw.cmd) not found" -ForegroundColor Red
+    Write-Host "Maven wrapper not found and 'mvn' is not available on PATH." -ForegroundColor Red
     exit 1
 }
 
@@ -91,7 +98,7 @@ Write-Host ""
 
 # Start the Spring Boot application
 try {
-    .\mvnw.cmd spring-boot:run
+    & $mavenCommand spring-boot:run
 } catch {
     Write-Host ""
     Write-Host "❌ Failed to start backend server" -ForegroundColor Red

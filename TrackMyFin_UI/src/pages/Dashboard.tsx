@@ -7,6 +7,7 @@ import { ConnectionStatus } from '../components/ui/ConnectionStatus';
 import { AddSalaryForm, SalaryList, Salary } from '../components/dashboard/SalarySection';
 import { ExpenseChart, ExpenseData, CategoryExpense } from '../components/dashboard/ExpenseChart';
 import { CategoriesList, Category as DashboardCategory, CategoryFormData } from '../components/dashboard/CategoriesSection';
+import SmartInsightsCard from '../components/dashboard/SmartInsightsCard';
 import ExportModal from '../components/ui/ExportModal';
 import QuickExportButton from '../components/ui/QuickExportButton';
 import { apiService } from '../services/apiService';
@@ -45,6 +46,18 @@ const Dashboard: React.FC = () => {
   
   const [error, setError] = useState<string | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [statsDateRange, setStatsDateRange] = useState<{ startDate: string; endDate: string }>(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+    return {
+      startDate: formatDate(monthStart),
+      endDate: formatDate(now),
+    };
+  });
+  const [customStats, setCustomStats] = useState<any | null>(null);
+  const [isCustomStatsLoading, setIsCustomStatsLoading] = useState(false);
 
   // Update local states when data changes
   useEffect(() => {
@@ -68,26 +81,18 @@ const Dashboard: React.FC = () => {
   const processExpenseData = useCallback((transactionData: any[], categoryData: any[]) => {
     try {
       setLoading(prev => ({ ...prev, expenses: true }));
-      console.log('🔄 Processing expense data from transactions...');
-      console.log('📊 Transaction data:', transactionData);
-      console.log('🏷️ Category data:', categoryData);
       
       // Filter expense transactions - handle both uppercase and lowercase
       const expenseTransactions = transactionData.filter(t => {
         const typeMatch = t.type && t.type.toString().toUpperCase() === 'EXPENSE';
-        console.log(`🔍 Transaction: ${t.description}, Type: "${t.type}", Matches EXPENSE: ${typeMatch}`);
         return typeMatch;
       });
-      console.log('💰 Expense transactions found:', expenseTransactions.length);
-      console.log('💰 Expense transactions details:', expenseTransactions);
       
       // Generate monthly data for last 6 months
       const monthlyData = generateMonthlyExpenseData(expenseTransactions);
-      console.log('📈 Generated monthly data:', monthlyData);
       
       // Generate category data
       const categoryExpenseData = generateCategoryExpenseData(expenseTransactions, categoryData);
-      console.log('🏷️ Generated category data:', categoryExpenseData);
       
       setExpenseData(monthlyData);
       setCategoryExpenseData(categoryExpenseData);
@@ -116,27 +121,18 @@ const Dashboard: React.FC = () => {
       monthlyMap.set(monthKey, { month: monthKey, amount: 0 });
     }
     
-    console.log('📅 Generated month keys:', Array.from(monthlyMap.keys()));
-    
     // Populate with actual expense data
     expenseTransactions.forEach(transaction => {
       const date = new Date(transaction.date);
       const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
       
-      console.log(`💰 Processing transaction: ${transaction.description}, Date: ${transaction.date}, Month: ${monthKey}, Amount: ${transaction.amount}`);
-      
       if (monthlyMap.has(monthKey)) {
         const existing = monthlyMap.get(monthKey);
         existing.amount += Number(transaction.amount) || 0;
-        console.log(`✅ Added ₹${transaction.amount} to ${monthKey}, new total: ₹${existing.amount}`);
-      } else {
-        console.log(`⚠️ Month ${monthKey} not in range, skipping`);
       }
     });
     
-    const result = Array.from(monthlyMap.values());
-    console.log('📊 Final monthly expense data:', result);
-    return result;
+    return Array.from(monthlyMap.values());
   };
 
   const generateCategoryExpenseData = (expenseTransactions: any[], categoryData: any[]) => {
@@ -228,15 +224,60 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const handleStatsDateChange = (field: 'startDate' | 'endDate', value: string) => {
+    setStatsDateRange((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const applyStatsDateFilter = async () => {
+    if (!statsDateRange.startDate || !statsDateRange.endDate) {
+      setError('Please select both start and end date for stats filter');
+      return;
+    }
+
+    if (statsDateRange.startDate > statsDateRange.endDate) {
+      setError('Start date cannot be after end date');
+      return;
+    }
+
+    try {
+      setIsCustomStatsLoading(true);
+      setError(null);
+      const stats = await apiService.getDashboardStats(statsDateRange);
+      setCustomStats(stats);
+    } catch (statsError) {
+      console.error('Failed to load filtered dashboard stats:', statsError);
+      setError('Failed to load filtered dashboard stats');
+    } finally {
+      setIsCustomStatsLoading(false);
+    }
+  };
+
+  const resetStatsToCurrentData = () => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+    setStatsDateRange({
+      startDate: formatDate(monthStart),
+      endDate: formatDate(now),
+    });
+    setCustomStats(null);
+    setError(null);
+  };
+
   // Calculate derived stats
   const getFormattedStats = () => {
-    if (!dashboardStats) return null;
+    const statsSource = customStats || dashboardStats;
+    if (!statsSource) return null;
 
     return {
-      totalBalance: `₹${dashboardStats.totalBalance.toLocaleString('en-IN')}`,
-      monthlyIncome: `₹${dashboardStats.monthlyIncome.toLocaleString('en-IN')}`,
-      monthlyExpenses: `₹${dashboardStats.monthlyExpenses.toLocaleString('en-IN')}`,
-      savingsRate: `${dashboardStats.savingsRate.toFixed(1)}%`
+      totalBalance: `₹${statsSource.totalBalance.toLocaleString('en-IN')}`,
+      monthlyIncome: `₹${statsSource.monthlyIncome.toLocaleString('en-IN')}`,
+      monthlyExpenses: `₹${statsSource.monthlyExpenses.toLocaleString('en-IN')}`,
+      savingsRate: `${statsSource.savingsRate.toFixed(1)}%`
     };
   };
 
@@ -291,35 +332,85 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Stats Filters */}
+        <div className="mb-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Stats Date Range</h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Current month is selected automatically. Change dates if you want custom stats.</p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={statsDateRange.startDate}
+                  onChange={(event) => handleStatsDateChange('startDate', event.target.value)}
+                  className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={statsDateRange.endDate}
+                  onChange={(event) => handleStatsDateChange('endDate', event.target.value)}
+                  className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={applyStatsDateFilter}
+                disabled={isCustomStatsLoading}
+                className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-60"
+              >
+                {isCustomStatsLoading ? 'Applying...' : 'Apply'}
+              </button>
+              <button
+                type="button"
+                onClick={resetStatsToCurrentData}
+                className="px-4 py-2 rounded-md bg-gray-600 hover:bg-gray-700 text-white"
+              >
+                Use Current Month
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Stats Cards */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatCard
-              title="Total Balance"
+              title="All-Time Balance"
               value={stats.totalBalance}
               icon={<DollarSign className="h-6 w-6" />}
               iconColor="green"
             />
             <StatCard
-              title="Monthly Income"
+              title="Selected Range Income"
               value={stats.monthlyIncome}
               icon={<TrendingUp className="h-6 w-6" />}
               iconColor="blue"
             />
             <StatCard
-              title="Monthly Expenses"
+              title="Selected Range Expenses"
               value={stats.monthlyExpenses}
               icon={<TrendingDown className="h-6 w-6" />}
               iconColor="red"
             />
             <StatCard
-              title="Savings Rate"
+              title="Selected Range Savings"
               value={stats.savingsRate}
               icon={<BarChart3 className="h-6 w-6" />}
               iconColor="purple"
             />
           </div>
         )}
+
+        {/* Smart Insights */}
+        <div className="mb-8">
+          <SmartInsightsCard />
+        </div>
 
         {/* Salary and Expense Chart Row */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">

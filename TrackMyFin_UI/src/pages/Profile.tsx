@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button, Input } from '../components/ui/FormElements';
 import { useToast } from '../components/ui/Toast';
@@ -14,7 +14,6 @@ import {
   Save, 
   X,
   UserCircle,
-  Shield,
   Key
 } from 'lucide-react';
 
@@ -35,7 +34,7 @@ interface ProfileFormData extends ProfileData {
 }
 
 const Profile: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { success, error } = useToast();
   
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -67,7 +66,7 @@ const Profile: React.FC = () => {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Load profile data from API
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     try {
       setLoading(true);
       console.log('🔄 Loading profile data from API...');
@@ -114,14 +113,14 @@ const Profile: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   // Initialize profile data from API or user context
   useEffect(() => {
     if (user) {
       loadProfileData();
     }
-  }, [user]);
+  }, [user, loadProfileData]);
 
   const handleInputChange = (field: keyof ProfileFormData, value: string) => {
     setFormData(prev => ({
@@ -155,7 +154,7 @@ const Profile: React.FC = () => {
       errors.email = 'Please enter a valid email address';
     }
     
-    if (formData.phone && !/^\+?[\d\s\-\(\)]+$/.test(formData.phone)) {
+    if (formData.phone && !/^\+?[\d\s\-()]+$/.test(formData.phone)) {
       errors.phone = 'Please enter a valid phone number';
     }
     

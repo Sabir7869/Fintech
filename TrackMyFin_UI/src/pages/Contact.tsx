@@ -3,12 +3,8 @@ import { useTheme } from '../contexts/ThemeContext';
 import { 
   Mail, 
   Phone, 
-  MapPin, 
   Send, 
-  CheckCircle, 
-  Users,
-  Clock,
-  Heart
+  CheckCircle
 } from 'lucide-react';
 
 const Contact: React.FC = () => {

@@ -85,7 +85,7 @@ const TrackMyFinLogo: React.FC<TrackMyFinLogoProps> = ({
             cx="60" 
             cy="60" 
             r="58" 
-            fill="url(#gradient-${size})" 
+            fill={`url(#gradient-${size})`} 
             className={animated ? 'animate-pulse' : ''}
             filter={animated ? `url(#glow-${size})` : `url(#shadow-${size})`}
           />
@@ -95,7 +95,7 @@ const TrackMyFinLogo: React.FC<TrackMyFinLogoProps> = ({
             cx="60" 
             cy="60" 
             r="50" 
-            fill={isMinimal ? "white" : "url(#innerGlow-${size})"} 
+            fill={isMinimal ? 'white' : `url(#innerGlow-${size})`} 
           />
           
           {/* Tech Rings - only show in default variant */}
@@ -109,13 +109,13 @@ const TrackMyFinLogo: React.FC<TrackMyFinLogoProps> = ({
           {/* Chart Bars - Enhanced design */}
           {!isIconOnly && (
             <>
-              <rect x="28" y="78" width="6" height="17" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="38" y="73" width="6" height="22" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="48" y="68" width="6" height="27" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="58" y="63" width="6" height="32" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="68" y="58" width="6" height="37" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="78" y="53" width="6" height="42" fill="url(#chartGradient-${size})" rx="3" />
-              <rect x="88" y="48" width="6" height="47" fill="url(#chartGradient-${size})" rx="3" />
+              <rect x="28" y="78" width="6" height="17" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="38" y="73" width="6" height="22" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="48" y="68" width="6" height="27" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="58" y="63" width="6" height="32" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="68" y="58" width="6" height="37" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="78" y="53" width="6" height="42" fill={`url(#chartGradient-${size})`} rx="3" />
+              <rect x="88" y="48" width="6" height="47" fill={`url(#chartGradient-${size})`} rx="3" />
             </>
           )}
 

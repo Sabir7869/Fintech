@@ -37,6 +37,19 @@ public class CategoryService {
         return categoryRepository.findById(id);
     }
 
+    public Optional<Category> findByNameAndTypeIgnoreCase(String name, Category.CategoryType type) {
+        if (name == null || name.isBlank()) {
+            return Optional.empty();
+        }
+        return categoryRepository.findByNameIgnoreCaseAndType(name.trim(), type);
+    }
+
+    public Optional<Category> getFallbackExpenseCategory() {
+        return findByNameAndTypeIgnoreCase("Bills", Category.CategoryType.EXPENSE)
+                .or(() -> findByNameAndTypeIgnoreCase("Shopping", Category.CategoryType.EXPENSE))
+                .or(() -> getCategoriesByType(Category.CategoryType.EXPENSE).stream().findFirst());
+    }
+
     public Category updateCategory(Category category) {
         return categoryRepository.save(category);
     }

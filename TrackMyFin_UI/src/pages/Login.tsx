@@ -197,9 +197,9 @@ const Login: React.FC = () => {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+                <button type="button" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
                   Forgot your password?
-                </a>
+                </button>
               </div>
             </div>
 
@@ -232,13 +232,13 @@ const Login: React.FC = () => {
         <div className="text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             By signing in, you agree to our{' '}
-            <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+            <button type="button" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
               Terms of Service
-            </a>{' '}
+            </button>{' '}
             and{' '}
-            <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+            <button type="button" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
               Privacy Policy
-            </a>
+            </button>
           </p>
         </div>
       </div>

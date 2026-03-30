@@ -23,4 +23,6 @@ public class RegisterRequest {
     private String lastName;
 
     private String phoneNumber;
+
+    private String currency = "USD";
 }

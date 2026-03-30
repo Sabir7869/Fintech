@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '../components/ui/Card';
 import { Button, Input } from '../components/ui/FormElements';
 import { Modal } from '../components/ui/Modal';
@@ -36,7 +36,7 @@ interface CategoryFormData {
 }
 
 const Categories: React.FC = () => {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -53,16 +53,7 @@ const Categories: React.FC = () => {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    // Only try to load categories if authentication is complete and user is authenticated
-    if (!authLoading && isAuthenticated) {
-      loadCategories();
-    } else if (!authLoading && !isAuthenticated) {
-      setLoading(false); // Stop loading if user is not authenticated
-    }
-  }, [isAuthenticated, authLoading]);
-
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
       const data = await apiService.getCategories();
@@ -81,7 +72,16 @@ const Categories: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [error]);
+
+  useEffect(() => {
+    // Only try to load categories if authentication is complete and user is authenticated
+    if (!authLoading && isAuthenticated) {
+      loadCategories();
+    } else if (!authLoading && !isAuthenticated) {
+      setLoading(false); // Stop loading if user is not authenticated
+    }
+  }, [isAuthenticated, authLoading, loadCategories]);
 
   // Form handling functions
   const resetForm = () => {

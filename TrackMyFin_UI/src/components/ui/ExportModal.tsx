@@ -13,7 +13,6 @@ import {
   Square
 } from 'lucide-react';
 import { TransactionExportService, ExportOptions, ExportFilters } from '../../services/exportService';
-import { testPDFExport } from '../../services/testExport';
 import { SimplePDFExport } from '../../services/simplePDFExport';
 import { SimpleExcelExport } from '../../services/simpleExcelExport';
 

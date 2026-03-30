@@ -7,6 +7,7 @@ export interface RegisterRequest {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  currency?: string;
 }
 
 export interface LoginRequest {
@@ -19,7 +20,30 @@ export interface AuthResponse {
   email: string;
   firstName: string;
   lastName: string;
+  currency?: string;
   message?: string;
+}
+
+export interface Currency {
+  code: string;
+  displayName: string;
+  symbol: string;
+  displayValue: string;
+}
+
+export interface ExtractedExpense {
+  description: string;
+  amount: number;
+  category: string;
+  date: string;
+  merchant?: string;
+}
+
+export interface BillExtractResponse {
+  expenses: ExtractedExpense[];
+  merchant?: string;
+  message: string;
+  success: boolean;
 }
 
 export interface ApiError {
@@ -152,6 +176,7 @@ class ApiService {
       firstName: data.firstName.trim(),
       lastName: data.lastName.trim(),
       phoneNumber: data.phoneNumber?.trim() || '',
+      currency: data.currency || 'USD',
     };
 
     console.log('Sending registration data:', {
@@ -159,6 +184,7 @@ class ApiService {
       firstName: cleanData.firstName,
       lastName: cleanData.lastName,
       phoneNumber: cleanData.phoneNumber,
+      currency: cleanData.currency,
       passwordLength: cleanData.password.length
     });
 
@@ -188,6 +214,10 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify(cleanData),
     });
+  }
+
+  async getCurrencies(): Promise<Currency[]> {
+    return this.makeRequest<Currency[]>('/auth/currencies');
   }
 
   // Add authorization header for authenticated requests
@@ -445,10 +475,14 @@ class ApiService {
     });
   }
 
-  async getDashboardStats(): Promise<any> {
+  async getDashboardStats(dateRange?: { startDate: string; endDate: string }): Promise<any> {
     console.log('🔄 Fetching dashboard stats...');
     try {
-      const result = await this.makeAuthenticatedRequest<any>('/dashboard/stats');
+      const query =
+        dateRange && dateRange.startDate && dateRange.endDate
+          ? `?startDate=${encodeURIComponent(dateRange.startDate)}&endDate=${encodeURIComponent(dateRange.endDate)}`
+          : '';
+      const result = await this.makeAuthenticatedRequest<any>(`/dashboard/stats${query}`);
       console.log('✅ Dashboard stats loaded successfully:', result);
       return result;
     } catch (error) {
@@ -485,6 +519,22 @@ class ApiService {
       return result;
     } catch (error) {
       console.error('❌ Failed to update profile:', error);
+      throw error;
+    }
+  }
+
+  // Bill extraction using Gemini AI
+  async extractBillExpenses(billImage: string): Promise<BillExtractResponse> {
+    try {
+      console.log('🔄 Extracting expenses from bill...');
+      const result = await this.makeAuthenticatedRequest<BillExtractResponse>('/bills/extract', {
+        method: 'POST',
+        body: JSON.stringify({ billImage }),
+      });
+      console.log('✅ Bill extraction successful:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Failed to extract bill expenses:', error);
       throw error;
     }
   }

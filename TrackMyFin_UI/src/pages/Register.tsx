@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { apiService, Currency } from '../services/apiService';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const { register, isLoading, error, clearError } = useAuth();
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [currenciesLoading, setCurrenciesLoading] = useState(true);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -12,14 +15,38 @@ const Register: React.FC = () => {
     email: '',
     phoneNumber: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    currency: 'USD'
   });
 
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fetch currencies on component mount
+  useEffect(() => {
+    const fetchCurrencies = async () => {
+      try {
+        const currencyList = await apiService.getCurrencies();
+        setCurrencies(currencyList);
+      } catch (err) {
+        console.error('Failed to fetch currencies:', err);
+        // Default currencies if fetch fails
+        setCurrencies([
+          { code: 'USD', displayName: 'US Dollar', symbol: '$', displayValue: 'USD - US Dollar ($)' },
+          { code: 'EUR', displayName: 'Euro', symbol: '€', displayValue: 'EUR - Euro (€)' },
+          { code: 'GBP', displayName: 'British Pound', symbol: '£', displayValue: 'GBP - British Pound (£)' },
+          { code: 'INR', displayName: 'Indian Rupee', symbol: '₹', displayValue: 'INR - Indian Rupee (₹)' },
+        ]);
+      } finally {
+        setCurrenciesLoading(false);
+      }
+    };
+
+    fetchCurrencies();
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
       ...formData,
@@ -82,6 +109,7 @@ const Register: React.FC = () => {
           email: formData.email,
           phoneNumber: formData.phoneNumber,
           password: formData.password,
+          currency: formData.currency,
         });
         
         // Registration successful, redirect to dashboard
@@ -234,6 +262,34 @@ const Register: React.FC = () => {
             </div>
 
             <div>
+              <label htmlFor="currency" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Preferred Currency
+              </label>
+              {currenciesLoading ? (
+                <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500">
+                  Loading currencies...
+                </div>
+              ) : (
+                <select
+                  id="currency"
+                  name="currency"
+                  value={formData.currency}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition-colors duration-200"
+                >
+                  {currencies.map((curr) => (
+                    <option key={curr.code} value={curr.code}>
+                      {curr.displayValue}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                This currency will be used throughout your account
+              </p>
+            </div>
+
+            <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Password
               </label>
@@ -349,13 +405,13 @@ const Register: React.FC = () => {
         <div className="text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             By creating an account, you agree to our{' '}
-            <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+            <button type="button" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
               Terms of Service
-            </a>{' '}
+            </button>{' '}
             and{' '}
-            <a href="#" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
+            <button type="button" className="font-medium text-primary-600 dark:text-primary-400 hover:text-primary-500 dark:hover:text-primary-300 transition-colors duration-200">
               Privacy Policy
-            </a>
+            </button>
           </p>
         </div>
       </div>

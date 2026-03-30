@@ -45,11 +45,18 @@ spring.datasource.password=your_password
 ```
 
 ### 3. Run the Application
-```bash
+Development profile (H2, recommended for local startup):
+```powershell
+$env:SPRING_PROFILES_ACTIVE='dev'
+$env:SERVER_PORT='8095'
 mvn spring-boot:run
 ```
 
-The application will start on `http://localhost:8080`
+The application will start on `http://localhost:8095`.
+
+You can also use helper scripts from the backend root:
+- `start-backend-dev.ps1`
+- `start-backend-dev.bat`
 
 ## API Endpoints
 
@@ -63,6 +70,7 @@ The application will start on `http://localhost:8080`
 - `PUT /api/transactions/{id}` - Update transaction
 - `DELETE /api/transactions/{id}` - Delete transaction
 - `GET /api/transactions/summary` - Get financial summary
+- `POST /api/voice-expense` - Create a transaction from natural language voice text via Gemini
 
 ### Categories
 - `GET /api/categories` - Get all categories
@@ -75,6 +83,25 @@ The application will start on `http://localhost:8080`
 - `PUT /api/budgets/{id}` - Update budget
 - `DELETE /api/budgets/{id}` - Delete budget
 - `GET /api/budgets/current` - Get current active budgets
+
+### Health
+- `GET /api/health` - Backend health
+- `GET /api/health/gemini` - Gemini API/key health
+
+Gemini key setup (PowerShell):
+```powershell
+$env:GEMINI_API_KEY='your_google_ai_studio_key'
+```
+
+Voice expense request example:
+```bash
+curl -X POST http://localhost:8080/api/voice-expense \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "text": "I spent 200 rupees on lunch"
+  }'
+```
 
 ## Sample API Usage
 

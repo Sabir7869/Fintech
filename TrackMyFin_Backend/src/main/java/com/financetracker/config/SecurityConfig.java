@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/health", "/api/dashboard/health").permitAll() // Allow health checks
+                        .requestMatchers("/api/health", "/api/health/**", "/api/dashboard/health").permitAll() // Allow health checks
                         .requestMatchers("/api/categories/default").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/categories/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/categories/**").permitAll()

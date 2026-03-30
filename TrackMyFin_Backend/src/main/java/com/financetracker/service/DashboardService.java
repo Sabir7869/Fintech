@@ -27,22 +27,23 @@ public class DashboardService {
     private final SalaryService salaryService;
 
     public DashboardStatsResponse getDashboardStats(User user) {
-        log.info("🔥 UPDATED VERSION: Calculating dashboard stats for user: {}", user.getEmail());
-
-        // Get current month data
         LocalDateTime startOfMonth = LocalDateTime.now().withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
         LocalDateTime endOfMonth = startOfMonth.plusMonths(1).minusSeconds(1);
-        
-        log.info("📅 Date range for monthly calculation: {} to {}", startOfMonth, endOfMonth);
+
+        return getDashboardStats(user, startOfMonth, endOfMonth);
+    }
+
+    public DashboardStatsResponse getDashboardStats(User user, LocalDateTime startDate, LocalDateTime endDate) {
+        log.info("Calculating dashboard stats for user: {} from {} to {}", user.getEmail(), startDate, endDate);
 
         // Total stats (all time)
         BigDecimal totalIncome = getTotalIncome(user);
         BigDecimal totalExpenses = getTotalExpenses(user);
         BigDecimal totalBalance = totalIncome.subtract(totalExpenses);
 
-        // Monthly stats
-        BigDecimal monthlyIncome = getIncomeByDateRange(user, startOfMonth, endOfMonth);
-        BigDecimal monthlyExpenses = getExpensesByDateRange(user, startOfMonth, endOfMonth);
+        // Selected range stats
+        BigDecimal monthlyIncome = getIncomeByDateRange(user, startDate, endDate);
+        BigDecimal monthlyExpenses = getExpensesByDateRange(user, startDate, endDate);
         
         log.info("📊 FINAL CALCULATIONS - Total Income: {}, Monthly Income: {}, Monthly Expenses: {}, Total Balance: {}", 
                 totalIncome, monthlyIncome, monthlyExpenses, totalBalance);
@@ -81,6 +82,76 @@ public class DashboardService {
                 .monthlyData(monthlyData)
                 .categoryData(categoryData)
                 .build();
+    }
+
+    public List<String> getSmartInsights(User user) {
+        DashboardStatsResponse stats = getDashboardStats(user);
+
+        List<Transaction> transactions = transactionRepository.findByUserOrderByTransactionDateDesc(user);
+        List<Transaction> expenses = transactions.stream()
+                .filter(t -> t.getType() == Transaction.TransactionType.EXPENSE)
+                .collect(Collectors.toList());
+
+        List<String> insights = new ArrayList<>();
+
+        String topCategoryInsight = getTopCategoryInsight(expenses);
+        if (topCategoryInsight != null) {
+            insights.add(topCategoryInsight);
+        }
+
+        insights.add(String.format("You are saving %.1f%% of your monthly income", stats.getSavingsRate()));
+
+        String recommendation = getRecommendation(stats.getSavingsRate(), expenses);
+        insights.add(recommendation);
+
+        return insights;
+    }
+
+    private String getTopCategoryInsight(List<Transaction> expenses) {
+        if (expenses.isEmpty()) {
+            return "No expense data yet. Start adding expenses to unlock personalized insights";
+        }
+
+        Optional<Map.Entry<String, Double>> topCategory = expenses.stream()
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategory() != null ? t.getCategory().getName() : "Uncategorized",
+                        Collectors.summingDouble(t -> t.getAmount().doubleValue())
+                ))
+                .entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue());
+
+        return topCategory
+                .map(entry -> entry.getKey() + " is your highest spending category")
+                .orElse(null);
+    }
+
+    private String getRecommendation(double savingsRate, List<Transaction> expenses) {
+        if (savingsRate < 10) {
+            return "Your savings rate is low. Consider reducing discretionary spending this month";
+        }
+
+        if (savingsRate < 30) {
+            return "Good progress. Try increasing your savings by automating a fixed transfer";
+        }
+
+        if (expenses.isEmpty()) {
+            return "Great start. Keep tracking expenses consistently to maintain your savings";
+        }
+
+        Optional<String> topCategory = expenses.stream()
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategory() != null ? t.getCategory().getName() : "Uncategorized",
+                        Collectors.summingDouble(t -> t.getAmount().doubleValue())
+                ))
+                .entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey);
+
+        return topCategory
+                .map(category -> "Try reducing " + category + " expenses to save more")
+                .orElse("You are on track. Keep following your current budget strategy");
     }
 
     private LocalDateTime getStartDateForRange(String range) {
